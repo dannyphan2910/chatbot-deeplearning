@@ -7,6 +7,7 @@ timeframe = '2015-01'
 sql_transaction = []
 start_row = 0
 cleanup = 1000000
+place_holder = ' newline_char '
 
 connection = sqlite3.connect('{}.db'.format(timeframe))
 c = connection.cursor()
@@ -18,8 +19,7 @@ def create_table():
 
 
 def format_data(data):
-    data = data.replace('\n', ' newlinechar ').replace('\r', ' newlinechar ').replace('"', "'")
-    return data
+    return data.replace('\n', place_holder).replace('\r', place_holder).replace('"', "'")
 
 
 def transaction_bldr(sql):
@@ -36,28 +36,28 @@ def transaction_bldr(sql):
         sql_transaction = []
 
 
-def sql_insert_replace_comment(commentid, parentid, parent, comment, subreddit, time, score):
+def sql_insert_replace_comment(comment_id, parent_id, parent, comment, subreddit, time, score):
     try:
         sql = """UPDATE parent_reply SET parent_id = ?, comment_id = ?, parent = ?, comment = ?, subreddit = ?, unix = ?, score = ? WHERE parent_id =?;""".format(
-            parentid, commentid, parent, comment, subreddit, int(time), score, parentid)
+            parent_id, comment_id, parent, comment, subreddit, int(time), score, parent_id)
         transaction_bldr(sql)
     except Exception as e:
         print('s0 insertion', str(e))
 
 
-def sql_insert_has_parent(commentid, parentid, parent, comment, subreddit, time, score):
+def sql_insert_has_parent(comment_id, parent_id, parent, comment, subreddit, time, score):
     try:
         sql = """INSERT INTO parent_reply (parent_id, comment_id, parent, comment, subreddit, unix, score) VALUES ("{}","{}","{}","{}","{}",{},{});""".format(
-            parentid, commentid, parent, comment, subreddit, int(time), score)
+            parent_id, comment_id, parent, comment, subreddit, int(time), score)
         transaction_bldr(sql)
     except Exception as e:
         print('s0 insertion', str(e))
 
 
-def sql_insert_no_parent(commentid, parentid, comment, subreddit, time, score):
+def sql_insert_no_parent(comment_id, parent_id, comment, subreddit, time, score):
     try:
         sql = """INSERT INTO parent_reply (parent_id, comment_id, comment, subreddit, unix, score) VALUES ("{}","{}","{}","{}",{},{});""".format(
-            parentid, commentid, comment, subreddit, int(time), score)
+            parent_id, comment_id, comment, subreddit, int(time), score)
         transaction_bldr(sql)
     except Exception as e:
         print('s0 insertion', str(e))
@@ -81,7 +81,7 @@ def find_parent(pid):
         sql = "SELECT comment FROM parent_reply WHERE comment_id = '{}' LIMIT 1".format(pid)
         c.execute(sql)
         result = c.fetchone()
-        if result != None:
+        if result is not None:
             return result[0]
         else:
             return False
@@ -95,7 +95,7 @@ def find_existing_score(pid):
         sql = "SELECT score FROM parent_reply WHERE parent_id = '{}' LIMIT 1".format(pid)
         c.execute(sql)
         result = c.fetchone()
-        if result != None:
+        if result is not None:
             return result[0]
         else:
             return False
@@ -104,16 +104,14 @@ def find_existing_score(pid):
         return False
 
 
-if __name__ == '__main__':
+# this is the main function of this file, which will create a database from the Reddit data
+def create_table_main():
     create_table()
     row_counter = 0
     paired_rows = 0
 
     with open('../RC_{}'.format(timeframe), buffering=1000) as f:
-    # with open('/home/paperspace/reddit_comment_dumps/RC_{}'.format(timeframe), buffering=1000) as f:
         for row in f:
-            # print(row)
-            # time.sleep(555)
             row_counter += 1
 
             if row_counter > start_row:
@@ -154,7 +152,7 @@ if __name__ == '__main__':
 
             if row_counter > start_row:
                 if row_counter % cleanup == 0:
-                    print("Cleaning up!")
+                    print("Cleaning up...")
                     sql = "DELETE FROM parent_reply WHERE parent IS NULL"
                     c.execute(sql)
                     connection.commit()
